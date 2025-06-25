@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encontre o Par: Rurais e Urbanos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            margin: 0;
+            flex-direction: column;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 120px); /* 4 cartas por linha */
+            gap: 10px;
+        }
+        .card {
+            width: 120px;
+            height: 120px;
+            background-color: #3498db;
+            color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: 0.3s;
+        }
+        .card.flipped {
+            background-color: #fff;
+            color: #333;
+            transform: scale(1.1);
+        }
+        .card.matched {
+            background-color: #2ecc71;
+            color: white;
+            pointer-events: none; /* Impede que cartas já combinadas sejam clicadas novamente */
+        }
+        #scoreBoard {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .instructions {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #555;
+            width: 80%;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Encontre o Par: Rurais e Urbanos</h1>
+<div class="instructions">
+    <p>Bem-vindo ao jogo "Encontre o Par"! O objetivo é combinar cartas com temas rurais e urbanos. As cartas estão viradas para baixo e, a cada vez que você clicar em uma, ela será virada para mostrar um tema. Sua missão é encontrar as cartas que fazem par, como "Café" e "Cafézinho na cidade" ou "Plantação" e "Mercado". Quando você fizer um par, as cartas serão marcadas e não poderão ser viradas novamente. Tente encontrar todos os pares para ganhar o jogo e aumentar sua pontuação!</p>
+</div>
+
+<div id="scoreBoard">Pontuação: 0</div>
+<div class="game-board" id="gameBoard"></div>
+
+<script>
+    let score = 0;
+
+    // Cartas do jogo com pares de temas "Campo" e "Cidade" (total de 6 pares)
+    const cards = [
+        { id: 1, content: 'Café', match: 'Cafézinho na cidade' },
+        { id: 2, content: 'Cafézinho na cidade', match: 'Café' },
+        { id: 3, content: 'Plantação', match: 'Mercado' },
+        { id: 4, content: 'Mercado', match: 'Plantação' },
+        { id: 5, content: 'Cavalo', match: 'Táxi' },
+        { id: 6, content: 'Táxi', match: 'Cavalo' }
+    ];
+
+    // Embaralha as cartas
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // Função para atualizar a pontuação
+    function updateScore(points) {
+        score += points;
+        document.getElementById("scoreBoard").innerText = `Pontuação: ${score}`;
+    }
+
+    // Função para armazenar e atualizar o progresso dos cards
+    function ganharCard(cardIndex) {
+        let cardsGanhas = JSON.parse(localStorage.getItem("cardsGanhas")) || [];
+
+        // Verifica se o card já foi ganho
+        if (!cardsGanhas.includes(cardIndex)) {
+            cardsGanhas.push(cardIndex);
+            localStorage.setItem("cardsGanhas", JSON.stringify(cardsGanhas));
+        }
+    }
+
+    // Monta o tabuleiro de jogo
+    function createBoard() {
+        const shuffledCards = shuffle([...cards, ...cards]); // Duplicando as cartas
+        const gameBoard = document.getElementById('gameBoard');
+
+        shuffledCards.forEach(card => {
+            const cardElement = document.createElement('div');
+            cardElement.classList.add('card');
+            cardElement.dataset.id = card.id;
+            cardElement.textContent = ''; // Carta começa vazia
+            cardElement.dataset.content = card.content; // Armazenando o conteúdo da carta
+
+            cardElement.addEventListener('click', handleCardClick);
+            gameBoard.appendChild(cardElement);
+        });
+    }
+
+    let flippedCards = [];
+    let matchedPairs = 0;
+
+    // Função para virar a carta
+    function handleCardClick(event) {
+        const clickedCard = event.target;
+        if (flippedCards.length === 2 || clickedCard.classList.contains('flipped') || clickedCard.classList.contains('matched')) return;
+
+        clickedCard.classList.add('flipped');
+        clickedCard.textContent = clickedCard.dataset.content; // Exibe o conteúdo da carta
+        flippedCards.push(clickedCard);
+
+        if (flippedCards.length === 2) {
+            checkForMatch();
+        }
+    }
+
+    // Checa se as cartas viradas fazem par
+    function checkForMatch() {
+        const [firstCard, secondCard] = flippedCards;
+
+        if (firstCard.dataset.content === secondCard.dataset.match) {
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            matchedPairs++;
+
+            // Atualiza a pontuação
+            updateScore(10);
+
+            // Armazena o progresso das cartas combinadas
+            ganharCard(firstCard.dataset.id);
+            ganharCard(secondCard.dataset.id);
+
+            // Se todas as cartas forem combinadas
+            if (matchedPairs === cards.length) {
+                setTimeout(() => {
+                    alert('Você encontrou todos os pares!');
+                    startGame(); // Reinicia o jogo
+                }, 500);
+            }
+
+            flippedCards = []; // Resetando as cartas viradas
+        } else {
+            // Se não acertar o par, vira as cartas de volta para baixo após um pequeno delay
+            setTimeout(() => {
+                // Somente vira as cartas que não foram combinadas
+                if (!firstCard.classList.contains('matched')) {
+                    firstCard.classList.remove('flipped');
+                    firstCard.textContent = '';
+                }
+                if (!secondCard.classList.contains('matched')) {
+                    secondCard.classList.remove('flipped');
+                    secondCard.textContent = '';
+                }
+                flippedCards = []; // Resetando as cartas viradas
+            }, 1000);
+        }
+    }
+
+    // Função para reiniciar o jogo
+    function startGame() {
+        score = 0;
+        updateScore(0);
+        matchedPairs = 0;
+        document.getElementById('gameBoard').innerHTML = ''; // Limpa o tabuleiro
+        createBoard(); // Cria o tabuleiro novamente
+    }
+
+    // Iniciar o jogo
+    startGame();
+</script>
+
+</body>
+</html>
